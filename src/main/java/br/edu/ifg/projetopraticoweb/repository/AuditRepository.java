@@ -6,5 +6,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AuditRepository extends JpaRepository<Audit, Long> {
-    // Aqui você pode adicionar métodos personalizados, se necessário
 }

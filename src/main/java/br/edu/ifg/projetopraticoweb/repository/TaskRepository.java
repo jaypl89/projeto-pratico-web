@@ -6,6 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    // Aqui você pode adicionar métodos personalizados, se necessário
 }
 
