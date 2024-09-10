@@ -1,5 +1,6 @@
 package br.edu.ifg.projetopraticoweb.controller;
 
+import br.edu.ifg.projetopraticoweb.dto.UserDTO;
 import br.edu.ifg.projetopraticoweb.model.User;
 import br.edu.ifg.projetopraticoweb.service.UserService;
 import jakarta.ws.rs.GET;
@@ -11,6 +12,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -22,9 +24,11 @@ import java.util.Optional;
 public class UserController {
 
     private final UserService userService;
+    private final ModelMapper modelMapper;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, ModelMapper modelMapper) {
         this.userService = userService;
+        this.modelMapper = modelMapper;
     }
 
     // Exibe a lista de usuários na página Thymeleaf
@@ -42,7 +46,7 @@ public class UserController {
     @Path("/create")
     @Produces(MediaType.TEXT_HTML)
     public String showCreateForm(Model model) {
-        model.addAttribute("user", new User());
+        model.addAttribute("userDTO", new UserDTO());
         return "user-create";  // Thymeleaf page to render the create user form (user-create.html)
     }
 
@@ -51,7 +55,8 @@ public class UserController {
     @Path("/create")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public String createUser(@ModelAttribute User user) {
+    public String createUser(@ModelAttribute UserDTO userDTO) {
+        User user = modelMapper.map(userDTO, User.class);
         userService.save(user);
         return "redirect:/users/";  // Redirect to the user list page after saving
     }
@@ -63,7 +68,8 @@ public class UserController {
     public String showEditForm(@PathParam("id") Long id, Model model) {
         Optional<User> user = userService.findById(id);
         if (user.isPresent()) {
-            model.addAttribute("user", user.get());
+            UserDTO userDTO = modelMapper.map(user.get(), UserDTO.class);
+            model.addAttribute("userDTO", userDTO);
             return "user-edit";  // Thymeleaf page to render the edit user form (user-edit.html)
         } else {
             return "redirect:/users/";  // Redirect to the list if the user does not exist
@@ -75,7 +81,8 @@ public class UserController {
     @Path("/update")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public String updateUser(@ModelAttribute User user) {
+    public String updateUser(@ModelAttribute UserDTO userDTO) {
+        User user = modelMapper.map(userDTO, User.class);
         userService.save(user);  // O método save pode ser usado para atualizar, se o ID já existir
         return "redirect:/users/";
     }
@@ -89,5 +96,3 @@ public class UserController {
         return "redirect:/users/";  // Redirect to the user list after deletion
     }
 }
-
-

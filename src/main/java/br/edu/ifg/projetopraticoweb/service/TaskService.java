@@ -1,6 +1,7 @@
 package br.edu.ifg.projetopraticoweb.service;
 
 import br.edu.ifg.projetopraticoweb.model.Task;
+import br.edu.ifg.projetopraticoweb.model.User;
 import br.edu.ifg.projetopraticoweb.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,10 @@ public class TaskService {
 
     public TaskService(TaskRepository taskRepository) {
         this.taskRepository = taskRepository;
+    }
+
+    public List<Task> findAllByUser(User user) {
+        return taskRepository.findByUser(user);
     }
 
     public List<Task> findAll() {
@@ -33,4 +38,3 @@ public class TaskService {
         taskRepository.deleteById(id);
     }
 }
-

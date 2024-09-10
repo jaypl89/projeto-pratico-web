@@ -1,21 +1,26 @@
 package br.edu.ifg.projetopraticoweb.controller;
 
+import br.edu.ifg.projetopraticoweb.dto.TaskDTO;
+import br.edu.ifg.projetopraticoweb.enum_data.Status;
+import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
+import br.edu.ifg.projetopraticoweb.model.Project;
 import br.edu.ifg.projetopraticoweb.model.Task;
+import br.edu.ifg.projetopraticoweb.model.User;
 import br.edu.ifg.projetopraticoweb.service.ProjectService;
 import br.edu.ifg.projetopraticoweb.service.TaskService;
 import br.edu.ifg.projetopraticoweb.service.UserService;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.ModelAttribute;
+import org.modelmapper.ModelMapper;
+
+import java.net.URI;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,49 +29,57 @@ import java.util.Optional;
 public class TaskController {
 
     private final TaskService taskService;
-
     private final ProjectService projectService;
-
     private final UserService userService;
+    private final ModelMapper modelMapper;
 
-    public TaskController(TaskService taskService, ProjectService projectService, UserService userService) {
+    public TaskController(TaskService taskService, ProjectService projectService, UserService userService, ModelMapper modelMapper) {
         this.taskService = taskService;
         this.projectService = projectService;
         this.userService = userService;
+        this.modelMapper = modelMapper;
     }
 
-    // Exibe a lista de tarefas na página Thymeleaf
     @GET
-    @Path("/")
     @Produces(MediaType.TEXT_HTML)
     public String listTasks(Model model) {
-        List<Task> tasks = taskService.findAll();
+        User user = getAuthenticatedUser();
+        List<Task> tasks = taskService.findAllByUser(user);
         model.addAttribute("tasks", tasks);
-        return "task-list";  // Thymeleaf page to render task list (task-list.html)
+        return "task-list";
     }
 
-    // Exibe o formulário de criação de uma nova tarefa
     @GET
     @Path("/create")
     @Produces(MediaType.TEXT_HTML)
     public String showCreateForm(Model model) {
-        model.addAttribute("task", new Task());
-        model.addAttribute("users", userService.findAll());  // Adiciona a lista de usuários
-        model.addAttribute("projects", projectService.findAll());  // Adiciona a lista de projetos
-        return "task-create";  // Thymeleaf page to render create form (task-create.html)
+        model.addAttribute("taskDTO", new TaskDTO());
+        model.addAttribute("users", userService.findAll());
+        model.addAttribute("projects", projectService.findAll());
+        return "task-create";
     }
 
-    // Processa o envio do formulário de criação de tarefa
     @POST
     @Path("/create")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public String createTask(@ModelAttribute Task task) {
-        taskService.save(task);
-        return "redirect:/tasks/";
+    public Response createTask(@BeanParam TaskDTO taskDTO, Model model) {
+        if (!isValid(taskDTO)) {
+            populateModelForForm(model, taskDTO);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Dados inválidos").build();
+        }
+
+        try {
+            Task task = convertToTask(taskDTO);
+            taskService.save(task);
+            return Response.seeOther(URI.create("/tasks/")).build();
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("error", e.getMessage());
+            populateModelForForm(model, taskDTO);
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
     }
 
-    // Exibe o formulário de edição de uma tarefa existente
     @GET
     @Path("/edit/{id}")
     @Produces(MediaType.TEXT_HTML)
@@ -74,31 +87,70 @@ public class TaskController {
         Optional<Task> task = taskService.findById(id);
         if (task.isPresent()) {
             model.addAttribute("task", task.get());
-            model.addAttribute("users", userService.findAll());  // Lista de usuários para o dropdown
-            model.addAttribute("projects", projectService.findAll());  // Lista de projetos
-            return "task-edit";  // Thymeleaf page to render edit form (task-edit.html)
+            model.addAttribute("users", userService.findAll());
+            model.addAttribute("projects", projectService.findAll());
+            return "task-edit";
         } else {
-            return "redirect:/tasks/";  // Redireciona se a tarefa não for encontrada
+            return "redirect:/tasks/";
         }
     }
 
-    // Processa o envio do formulário de edição de tarefa
     @PUT
     @Path("/update")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public String updateTask(@ModelAttribute Task task) {
-        taskService.save(task);  // Atualiza a tarefa se o ID já existir
-        return "redirect:/tasks/";
+    public Response updateTask(@BeanParam TaskDTO taskDTO, Model model) {
+        if (!isValid(taskDTO)) {
+            populateModelForForm(model, taskDTO);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Dados inválidos").build();
+        }
+
+        try {
+            Task task = convertToTask(taskDTO);
+            taskService.save(task);
+            return Response.seeOther(URI.create("/tasks/")).build();
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("error", e.getMessage());
+            populateModelForForm(model, taskDTO);
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
     }
 
-    // Processa a exclusão de uma tarefa
     @DELETE
     @Path("/delete/{id}")
     @Produces(MediaType.TEXT_HTML)
-    public String deleteTask(@PathParam("id") Long id) {
+    public Response deleteTask(@PathParam("id") Long id) {
         taskService.delete(id);
-        return "redirect:/tasks/";
+        return Response.seeOther(URI.create("/tasks/")).build();
+    }
+
+    private User getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentEmail = authentication.getName();  // Email do usuário autenticado
+        return userService.findByEmail(currentEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
+    }
+
+    private Project findProjectById(Long projectId) {
+        return projectService.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Projeto não encontrado."));
+    }
+
+    private Task convertToTask(TaskDTO taskDTO) {
+        Task task = modelMapper.map(taskDTO, Task.class);
+        task.setUser(getAuthenticatedUser());
+        task.setProject(findProjectById(taskDTO.getProjectId()));
+        task.setDeadline(LocalDate.parse(taskDTO.getDeadline(), DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+        task.setStatus(Status.valueOf(taskDTO.getStatus()));
+        return task;
+    }
+
+    private void populateModelForForm(Model model, TaskDTO taskDTO) {
+        model.addAttribute("taskDTO", taskDTO);
+    }
+
+    private boolean isValid(TaskDTO taskDTO) {
+        // Implementar validação adicional se necessário
+        return true;
     }
 }
-
