@@ -21,8 +21,10 @@ import org.modelmapper.ModelMapper;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Controller
 @Path("/tasks")
@@ -44,7 +46,9 @@ public class TaskController {
     @Produces(MediaType.TEXT_HTML)
     public String listTasks(Model model) {
         User user = getAuthenticatedUser();
-        List<Task> tasks = taskService.findAllByUser(user);
+        List<TaskDTO> tasks = taskService.findAllByUser(user).stream()
+                .map(this::convertToTaskDTO)
+                .collect(Collectors.toList());
         model.addAttribute("tasks", tasks);
         return "task-list";
     }
@@ -53,9 +57,7 @@ public class TaskController {
     @Path("/create")
     @Produces(MediaType.TEXT_HTML)
     public String showCreateForm(Model model) {
-        model.addAttribute("taskDTO", new TaskDTO());
-        model.addAttribute("users", userService.findAll());
-        model.addAttribute("projects", projectService.findAll());
+        populateModelForForm(model, new TaskDTO());
         return "task-create";
     }
 
@@ -64,6 +66,10 @@ public class TaskController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public Response createTask(@BeanParam TaskDTO taskDTO, Model model) {
+        return getResponse(taskDTO, model);
+    }
+
+    private Response getResponse(@BeanParam TaskDTO taskDTO, Model model) {
         if (!isValid(taskDTO)) {
             populateModelForForm(model, taskDTO);
             return Response.status(Response.Status.BAD_REQUEST).entity("Dados inválidos").build();
@@ -86,9 +92,7 @@ public class TaskController {
     public String showEditForm(@PathParam("id") Long id, Model model) {
         Optional<Task> task = taskService.findById(id);
         if (task.isPresent()) {
-            model.addAttribute("task", task.get());
-            model.addAttribute("users", userService.findAll());
-            model.addAttribute("projects", projectService.findAll());
+            model.addAttribute("task", convertToTaskDTO(task.get()));
             return "task-edit";
         } else {
             return "redirect:/tasks/";
@@ -100,20 +104,7 @@ public class TaskController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public Response updateTask(@BeanParam TaskDTO taskDTO, Model model) {
-        if (!isValid(taskDTO)) {
-            populateModelForForm(model, taskDTO);
-            return Response.status(Response.Status.BAD_REQUEST).entity("Dados inválidos").build();
-        }
-
-        try {
-            Task task = convertToTask(taskDTO);
-            taskService.save(task);
-            return Response.seeOther(URI.create("/tasks/")).build();
-        } catch (ResourceNotFoundException e) {
-            model.addAttribute("error", e.getMessage());
-            populateModelForForm(model, taskDTO);
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
+        return getResponse(taskDTO, model);
     }
 
     @DELETE
@@ -145,12 +136,51 @@ public class TaskController {
         return task;
     }
 
+    private TaskDTO convertToTaskDTO(Task task) {
+        TaskDTO taskDTO = modelMapper.map(task, TaskDTO.class);
+        taskDTO.setProjectId(task.getProject().getId());
+        taskDTO.setStatus(task.getStatus().getDescription());
+        taskDTO.setDeadline(task.getDeadline().toString());
+        return taskDTO;
+    }
+
     private void populateModelForForm(Model model, TaskDTO taskDTO) {
-        model.addAttribute("taskDTO", taskDTO);
+        model.addAttribute("task", taskDTO);
     }
 
     private boolean isValid(TaskDTO taskDTO) {
-        // Implementar validação adicional se necessário
+        // Verificação do título não ser nulo ou vazio
+        if (taskDTO.getTitle() == null || taskDTO.getTitle().trim().isEmpty()) {
+            return false;
+        }
+
+        // Verificação do comprimento da descrição não exceder 2000 caracteres
+        if (taskDTO.getDescription() != null && taskDTO.getDescription().length() > 2000) {
+            return false;
+        }
+
+        // Verificação do formato da data de vencimento
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            LocalDate.parse(taskDTO.getDeadline(), formatter);
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+
+        // Verificação do status ser um dos valores permitidos usando o enum
+        try {
+            Status.fromDescription(taskDTO.getStatus());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+
+        // Verificação do projectId ser positivo
+        if (taskDTO.getProjectId() == null || taskDTO.getProjectId() <= 0) {
+            return false;
+        }
+
+        // Se todas as verificações passaram, o DTO é considerado válido
         return true;
     }
+
 }

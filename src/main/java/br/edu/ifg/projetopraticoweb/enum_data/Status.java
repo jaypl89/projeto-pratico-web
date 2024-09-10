@@ -1,8 +1,9 @@
 package br.edu.ifg.projetopraticoweb.enum_data;
 
 public enum Status {
-    PENDENTE("Pendente"),
-    CONCLUIDA("Concluída");
+    PENDING("Pendente"),
+    IN_PROGRESS("Em Progresso"),
+    COMPLETED("Concluída");
 
     private final String description;
 

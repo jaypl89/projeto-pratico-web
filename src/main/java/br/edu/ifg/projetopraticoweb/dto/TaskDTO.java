@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TaskDTO {
 
+    private Long id; // Id for UPDATE and DELETE
+
     @NotNull
     @Size(min = 1, message = "Title must not be empty")
     private String title;
