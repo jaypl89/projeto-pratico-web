@@ -16,6 +16,8 @@ import java.util.List;
 @NoArgsConstructor
 public class ProjectDTO {
 
+    private Long id; // Id for UPDATE and DELETE
+
     @NotNull(message = "Name must not be null")
     @Size(min = 1, max = 255, message = "Name must be between 1 and 255 characters")
     private String name;

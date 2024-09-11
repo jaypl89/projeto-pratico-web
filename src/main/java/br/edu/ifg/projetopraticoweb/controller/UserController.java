@@ -56,7 +56,7 @@ public class UserController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public String createUser(@ModelAttribute UserDTO userDTO) {
-        User user = modelMapper.map(userDTO, User.class);
+        User user = convertToUser(userDTO);
         userService.save(user);
         return "redirect:/users/";  // Redirect to the user list page after saving
     }
@@ -67,12 +67,14 @@ public class UserController {
     @Produces(MediaType.TEXT_HTML)
     public String showEditForm(@PathParam("id") Long id, Model model) {
         Optional<User> user = userService.findById(id);
-        if (user.isPresent()) {
-            UserDTO userDTO = modelMapper.map(user.get(), UserDTO.class);
+
+        // Verifica se o usuário autenticado tem permissão para editar
+        if (user.isPresent() && isUserAuthorized(id)) {
+            UserDTO userDTO = convertToUserDTO(user.get());
             model.addAttribute("userDTO", userDTO);
             return "user-edit";  // Thymeleaf page to render the edit user form (user-edit.html)
         } else {
-            return "redirect:/users/";  // Redirect to the list if the user does not exist
+            return "redirect:/users/";  // Redirect to the list if the user does not exist or if not authorized
         }
     }
 
@@ -82,9 +84,16 @@ public class UserController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public String updateUser(@ModelAttribute UserDTO userDTO) {
-        User user = modelMapper.map(userDTO, User.class);
-        userService.save(user);  // O método save pode ser usado para atualizar, se o ID já existir
-        return "redirect:/users/";
+        User authenticatedUser = userService.getAuthenticatedUser();
+
+        // Verifica se o usuário autenticado está tentando atualizar seu próprio perfil
+        if (userDTO.getEmail().equals(authenticatedUser.getEmail())) {
+            User user = convertToUser(userDTO);
+            userService.save(user);
+            return "redirect:/users/";
+        } else {
+            return "redirect:/users/";  // Redireciona se o usuário não estiver autorizado
+        }
     }
 
     // Processa a exclusão de um usuário
@@ -92,7 +101,32 @@ public class UserController {
     @Path("/delete/{id}")
     @Produces(MediaType.TEXT_HTML)
     public String deleteUser(@PathParam("id") Long id) {
-        userService.delete(id);
-        return "redirect:/users/";  // Redirect to the user list after deletion
+        User authenticatedUser = userService.getAuthenticatedUser();
+
+        // Verifica se o usuário autenticado está tentando deletar seu próprio perfil
+        if (id.equals(authenticatedUser.getId())) {
+            userService.delete(id);
+            return "redirect:/users/";
+        } else {
+            return "redirect:/users/";  // Redireciona se o usuário não estiver autorizado
+        }
+    }
+
+    // Verifica se o usuário autenticado tem permissão para editar ou deletar
+    private boolean isUserAuthorized(Long userId) {
+        User authenticatedUser = userService.getAuthenticatedUser();
+        return authenticatedUser.getId().equals(userId);
+    }
+
+    private UserDTO convertToUserDTO(User user) {
+        UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+        userDTO.setPassword("");
+        return userDTO;
+    }
+
+    private User convertToUser(UserDTO userDTO) {
+        Optional<User> user = userService.findByEmail(userDTO.getEmail());
+        return user.orElseGet(() -> modelMapper.map(userDTO, User.class));
     }
 }
+

@@ -45,7 +45,7 @@ public class TaskController {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String listTasks(Model model) {
-        User user = getAuthenticatedUser();
+        User user = userService.getAuthenticatedUser();
         List<TaskDTO> tasks = taskService.findAllByUser(user).stream()
                 .map(this::convertToTaskDTO)
                 .collect(Collectors.toList());
@@ -57,7 +57,7 @@ public class TaskController {
     @Path("/create")
     @Produces(MediaType.TEXT_HTML)
     public String showCreateForm(Model model) {
-        populateModelForForm(model, new TaskDTO());
+        model.addAttribute("task", new TaskDTO());
         return "task-create";
     }
 
@@ -71,7 +71,7 @@ public class TaskController {
 
     private Response getResponse(@BeanParam TaskDTO taskDTO, Model model) {
         if (!isValid(taskDTO)) {
-            populateModelForForm(model, taskDTO);
+            model.addAttribute("task", new TaskDTO());
             return Response.status(Response.Status.BAD_REQUEST).entity("Dados inválidos").build();
         }
 
@@ -81,7 +81,7 @@ public class TaskController {
             return Response.seeOther(URI.create("/tasks/")).build();
         } catch (ResourceNotFoundException e) {
             model.addAttribute("error", e.getMessage());
-            populateModelForForm(model, taskDTO);
+            model.addAttribute("task", new TaskDTO());
             return Response.status(Response.Status.NOT_FOUND).build();
         }
     }
@@ -115,13 +115,6 @@ public class TaskController {
         return Response.seeOther(URI.create("/tasks/")).build();
     }
 
-    private User getAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentEmail = authentication.getName();  // Email do usuário autenticado
-        return userService.findByEmail(currentEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
-    }
-
     private Project findProjectById(Long projectId) {
         return projectService.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Projeto não encontrado."));
@@ -129,7 +122,7 @@ public class TaskController {
 
     private Task convertToTask(TaskDTO taskDTO) {
         Task task = modelMapper.map(taskDTO, Task.class);
-        task.setUser(getAuthenticatedUser());
+        task.setUser(userService.getAuthenticatedUser());
         task.setProject(findProjectById(taskDTO.getProjectId()));
         task.setDeadline(LocalDate.parse(taskDTO.getDeadline(), DateTimeFormatter.ofPattern("yyyy-MM-dd")));
         task.setStatus(Status.valueOf(taskDTO.getStatus()));
@@ -142,10 +135,6 @@ public class TaskController {
         taskDTO.setStatus(task.getStatus().getDescription());
         taskDTO.setDeadline(task.getDeadline().toString());
         return taskDTO;
-    }
-
-    private void populateModelForForm(Model model, TaskDTO taskDTO) {
-        model.addAttribute("task", taskDTO);
     }
 
     private boolean isValid(TaskDTO taskDTO) {
@@ -175,12 +164,7 @@ public class TaskController {
         }
 
         // Verificação do projectId ser positivo
-        if (taskDTO.getProjectId() == null || taskDTO.getProjectId() <= 0) {
-            return false;
-        }
-
-        // Se todas as verificações passaram, o DTO é considerado válido
-        return true;
+        return taskDTO.getProjectId() != null && taskDTO.getProjectId() > 0;
     }
 
 }
