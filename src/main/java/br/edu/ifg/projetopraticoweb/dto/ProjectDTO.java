@@ -18,19 +18,19 @@ public class ProjectDTO {
 
     private Long id; // Id for UPDATE and DELETE
 
-    @NotNull(message = "Name must not be null")
-    @Size(min = 1, max = 255, message = "Name must be between 1 and 255 characters")
+    @NotNull(message = "O nome não pode ser nulo")
+    @Size(min = 1, max = 255, message = "O nome deve ter entre 1 e 255 caracteres")
     private String name;
 
-    @Size(max = 2000, message = "Description should not exceed 2000 characters")
+    @Size(max = 2000, message = "A descrição não deve exceder 2000 caracteres")
     private String description;
 
-    @NotNull(message = "Start date is required")
-    @PastOrPresent(message = "Start date must be today or in the past")
+    @NotNull(message = "A data de início é obrigatória")
+    @PastOrPresent(message = "A data de início deve ser hoje ou no passado")
     private LocalDate startDate;
 
-    @NotNull(message = "End date is required")
-    @Future(message = "End date must be in the future")
+    @NotNull(message = "A data de término é obrigatória")
+    @Future(message = "A data de término deve estar no futuro")
     private LocalDate endDate;
 
     private List<Long> participantIds; // Lista de IDs dos participantes

@@ -10,8 +10,9 @@ import java.util.List;
 
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
-    // Consulta JPQL que retorna projetos onde o usuário é supervisor ou participante
-    @Query("SELECT p FROM Project p WHERE p.supervisor.id = :userId OR :userId MEMBER OF p.participants")
+
+    @Query("SELECT p FROM Project p WHERE p.supervisor.id = :userId OR :userId IN (SELECT u.id FROM p.participants u)")
     List<Project> findAllByUser(@Param("userId") Long userId);
 }
+
 

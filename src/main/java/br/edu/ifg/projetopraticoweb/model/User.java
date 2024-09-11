@@ -26,7 +26,7 @@ public class User {
     private String name;
 
     @Column(nullable = false, unique = true, length = 90)
-    @Pattern(regexp = "^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$", message = "Email inválido")
+    //@Pattern(regexp = "^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$", message = "Email inválido")
     private String email;
 
     @Column(nullable = false)
@@ -42,6 +42,9 @@ public class User {
     @PrePersist
     protected void onCreate() {
         this.creationDate = LocalDate.now();
+        if (this.profile == null) {
+            this.profile = Profile.USER;
+        }
     }
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)

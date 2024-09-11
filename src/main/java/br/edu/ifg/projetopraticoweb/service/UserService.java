@@ -65,6 +65,6 @@ public class UserService implements UserDetailsService {
     }
 
     public List<User> findAllByIds(List<Long> participantIds) {
-        return userRepository.findAllByIds(participantIds);
+        return userRepository.findAllById(participantIds);
     }
 }
