@@ -1,63 +1,90 @@
 package br.edu.ifg.projetopraticoweb.controller;
 
 import br.edu.ifg.projetopraticoweb.dto.UserDTO;
-import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
 import br.edu.ifg.projetopraticoweb.mapper.UserMapper;
 import br.edu.ifg.projetopraticoweb.model.User;
 import br.edu.ifg.projetopraticoweb.service.UserService;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import br.edu.ifg.projetopraticoweb.validator.UserDTOValidator;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/users")  // Define a rota base "/users" para todos os métodos
+@RestController
+@RequestMapping("/users")
 public class UserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+    private final UserDTOValidator userDTOValidator;
 
     public UserController(UserService userService, UserMapper userMapper) {
         this.userService = userService;
         this.userMapper = userMapper;
+        this.userDTOValidator = new UserDTOValidator();
     }
 
-    // Exibe a lista de usuários na página Thymeleaf
-    @GetMapping("/list")
-    public String listUsers(Model model) {
-        List<User> users = userService.findAll();
-        model.addAttribute("users", users);
-        return "user/list";  // Renderiza a página user-list.html
+    // API para listar todos os usuários (retorna JSON)
+    @GetMapping
+    public ResponseEntity<List<UserDTO>> listUsers() {
+        List<UserDTO> users = userService.findAll().stream()
+                .map(userMapper::toDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
     }
 
+    // API para obter um usuário por ID
     @GetMapping("/{id}")
-    public String getUserById(@PathVariable("id") Long id, Model model) {
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
         User user = userService.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com o ID " + id));
-        model.addAttribute("user", user);
-        return "user/detail";  // Renderiza a página user-detail.html
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return ResponseEntity.ok(userMapper.toDTO(user));
     }
 
-    // Exibe o formulário de cadastro de usuário
-    @GetMapping("/new")
-    public String showCreateForm(Model model) {
-        model.addAttribute("userDTO", new UserDTO());
-        return "user/create";  // Renderiza a página user-create.html
+    // API para criar um novo usuário (recebe dados em JSON)
+    @PostMapping
+    public ResponseEntity<String> createUser(@RequestBody UserDTO userDTO) {
+        if (!userDTOValidator.isValid(userDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
+
+        User user = userMapper.toEntity(userDTO);
+        User createdUser = userService.save(user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body("Usuário criado com sucesso com ID: " + createdUser.getId());
     }
 
-    // Exibe o formulário de edição do usuário
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable("id") Long id, Model model) {
-        Optional<User> user = userService.findById(id);
-        if (user.isPresent()) {
-            UserDTO userDTO = userMapper.toDTO(user.get());
-            model.addAttribute("userDTO", userDTO);
-            return "user/edit";  // Renderiza a página user-edit.html
+    // API para atualizar um usuário existente (recebe dados em JSON)
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateUser(@PathVariable Long id, @RequestBody UserDTO userDTO) {
+        if (!userDTOValidator.isValid(userDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
+
+        Optional<User> userOptional = userService.findById(id);
+        if (userOptional.isPresent()) {
+            User user = userMapper.toEntity(userDTO);
+            user.setId(id);
+            userService.save(user);
+            return ResponseEntity.ok("Usuário atualizado com sucesso");
         } else {
-            return "redirect:/";  // Redireciona se o usuário não for encontrado
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado");
         }
     }
 
+    // API para deletar um usuário por ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        if (userService.findById(id).isPresent()) {
+            userService.delete(id);
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado");
+        }
+    }
 }
+

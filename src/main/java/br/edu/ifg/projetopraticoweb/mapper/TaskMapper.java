@@ -37,7 +37,7 @@ public class TaskMapper implements Mapper<Task, TaskDTO>{
     @Override
     public Task toEntity(TaskDTO taskDTO) {
         Task task = modelMapper.map(taskDTO, Task.class);
-        task.setUser(userService.getAuthenticatedUser());
+        //task.setUser(userService.getAuthenticatedUser());
         Project project = projectService.findById(taskDTO.getProjectId()).orElse(null);
         task.setProject(project);
         task.setDeadline(LocalDate.parse(taskDTO.getDeadline(), DateTimeFormatter.ofPattern("yyyy-MM-dd")));

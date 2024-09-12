@@ -2,69 +2,91 @@ package br.edu.ifg.projetopraticoweb.controller;
 
 import br.edu.ifg.projetopraticoweb.dto.TaskDTO;
 import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
-import br.edu.ifg.projetopraticoweb.model.Task;
-import br.edu.ifg.projetopraticoweb.model.User;
-import br.edu.ifg.projetopraticoweb.service.TaskService;
-import br.edu.ifg.projetopraticoweb.service.UserService;
 import br.edu.ifg.projetopraticoweb.mapper.TaskMapper;
+import br.edu.ifg.projetopraticoweb.model.Task;
+import br.edu.ifg.projetopraticoweb.service.TaskService;
 import br.edu.ifg.projetopraticoweb.validator.TaskDTOValidator;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Controller
+@RestController
 @RequestMapping("/tasks")
 public class TaskController {
 
     private final TaskService taskService;
-    private final UserService userService;
     private final TaskMapper taskMapper;
+    private final TaskDTOValidator validator;
 
-    public TaskController(TaskService taskService, UserService userService, TaskMapper taskMapper) {
+    public TaskController(TaskService taskService, TaskMapper taskMapper) {
         this.taskService = taskService;
-        this.userService = userService;
         this.taskMapper = taskMapper;
+        this.validator = new TaskDTOValidator();
     }
 
-    // Exibe a lista de tarefas na página Thymeleaf
-    @GetMapping("/list")
-    public String listTasks(Model model) {
-        User user = userService.getAuthenticatedUser();
-        List<TaskDTO> tasks = taskService.findAllByUser(user).stream()
+    // Listar todas as tarefas
+    @GetMapping
+    public ResponseEntity<List<TaskDTO>> listTasks() {
+        List<TaskDTO> tasks = taskService.findAll().stream()
                 .map(taskMapper::toDTO)
-                .toList();
-        model.addAttribute("tasks", tasks);
-        return "task/list";
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(tasks);
     }
 
+    // Obter uma tarefa por ID
     @GetMapping("/{id}")
-    public String getTaskById(@PathVariable("id") Long id, Model model) {
+    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long id) {
         Task task = taskService.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tarefa não encontrada com o ID " + id));
-        model.addAttribute("task", task);
-        return "task/detail";  // Renderiza a página task-detail.html
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        return ResponseEntity.ok(taskMapper.toDTO(task));
     }
 
-    // Exibe o formulário de criação de tarefa
-    @GetMapping("/new")
-    public String showCreateForm(Model model) {
-        model.addAttribute("task", new TaskDTO());
-        return "task/create";
-    }
+    // Criar uma nova tarefa
+    @PostMapping
+    public ResponseEntity<String> createTask(@RequestBody TaskDTO taskDTO) {
+        if (!validator.isValid(taskDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
 
-    // Exibe o formulário de edição de tarefa
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable("id") Long id, Model model) {
-        Optional<Task> task = taskService.findById(id);
-        if (task.isPresent()) {
-            model.addAttribute("task", taskMapper.toDTO(task.get()));
-            return "task/edit";
-        } else {
-            return "redirect:/tasks";
+        try {
+            Task task = taskMapper.toEntity(taskDTO);
+            taskService.save(task);
+            return ResponseEntity.created(URI.create("/tasks/" + task.getId())).build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 
+    // Atualizar uma tarefa existente
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateTask(@PathVariable Long id, @RequestBody TaskDTO taskDTO) {
+        if (!validator.isValid(taskDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
+
+        try {
+            Task task = taskMapper.toEntity(taskDTO);
+            task.setId(id);
+            taskService.save(task);
+            return ResponseEntity.ok().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    // Deletar uma tarefa por ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteTask(@PathVariable Long id) {
+        try {
+            taskService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
 }

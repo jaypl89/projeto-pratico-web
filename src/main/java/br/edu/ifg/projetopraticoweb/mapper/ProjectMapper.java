@@ -35,7 +35,7 @@ public class ProjectMapper implements Mapper<Project, ProjectDTO>{
         Project project = modelMapper.map(projectDTO, Project.class);
 
         // Obter o usuário autenticado como supervisor e verificar se ele é SUPERVISOR
-        User supervisor = userService.getAuthenticatedUser();
+        User supervisor = null;//userService.getAuthenticatedUser();
         if (supervisor.getProfile() != Profile.SUPERVISOR) {
             throw new SecurityException("Somente usuários com perfil SUPERVISOR podem criar ou gerenciar projetos.");
         }

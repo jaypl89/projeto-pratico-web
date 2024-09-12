@@ -2,70 +2,95 @@ package br.edu.ifg.projetopraticoweb.controller;
 
 import br.edu.ifg.projetopraticoweb.dto.ProjectDTO;
 import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
-import br.edu.ifg.projetopraticoweb.model.Project;
-import br.edu.ifg.projetopraticoweb.model.User;
-import br.edu.ifg.projetopraticoweb.service.ProjectService;
-import br.edu.ifg.projetopraticoweb.service.UserService;
 import br.edu.ifg.projetopraticoweb.mapper.ProjectMapper;
+import br.edu.ifg.projetopraticoweb.model.Project;
+import br.edu.ifg.projetopraticoweb.service.ProjectService;
 import br.edu.ifg.projetopraticoweb.validator.ProjectDTOValidator;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Controller
+@RestController
 @RequestMapping("/projects")
 public class ProjectController {
 
     private final ProjectService projectService;
-    private final UserService userService;
     private final ProjectMapper projectMapper;
+    private final ProjectDTOValidator validator;
 
-    public ProjectController(ProjectService projectService, UserService userService, ProjectMapper projectMapper) {
+    public ProjectController(ProjectService projectService, ProjectMapper projectMapper) {
         this.projectService = projectService;
-        this.userService = userService;
         this.projectMapper = projectMapper;
+        this.validator = new ProjectDTOValidator();
     }
 
-    // Exibe a lista de projetos na página Thymeleaf
-    @GetMapping("/list")
-    public String listProjects(Model model) {
-        User user = userService.getAuthenticatedUser();
-        List<ProjectDTO> projects = projectService.findAllByUser(user).stream()
+    // Listar todos os projetos
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> listProjects() {
+        List<ProjectDTO> projects = projectService.findAll().stream()
                 .map(projectMapper::toDTO)
-                .toList();
-        model.addAttribute("projects", projects);
-        return "project/list";
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(projects);
     }
 
+    // Buscar projeto por ID
     @GetMapping("/{id}")
-    public String getProjectById(@PathVariable("id") Long id, Model model) {
+    public ResponseEntity<ProjectDTO> findProjectById(@PathVariable Long id) {
         Project project = projectService.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Projeto não encontrado com o ID " + id));
-        model.addAttribute("project", project);
-        return "project/detail";  // Renderiza a página project-detail.html
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+        return ResponseEntity.ok(projectMapper.toDTO(project));
     }
 
-    // Exibe o formulário de criação de um novo projeto
-    @GetMapping("/new")
-    public String showCreateForm(Model model) {
-        model.addAttribute("project", new ProjectDTO());
-        model.addAttribute("users", userService.findAll());
-        return "project/create";
+    // Criar um novo projeto
+    @PostMapping
+    public ResponseEntity<String> createProject(@RequestBody ProjectDTO projectDTO) {
+        if (!validator.isValid(projectDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
+
+        try {
+            Project project = projectMapper.toEntity(projectDTO);
+            projectService.save(project);
+            return ResponseEntity.created(URI.create("/projects/" + project.getId())).build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erro ao criar projeto: " + e.getMessage());
+        }
     }
 
-    // Exibe o formulário de edição de um projeto existente
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable("id") Long id, Model model) {
-        Optional<Project> project = projectService.findById(id);
-        if (project.isPresent()) {
-            model.addAttribute("project", projectMapper.toDTO(project.get()));
-            model.addAttribute("users", userService.findAll());
-            return "project/edit";
-        } else {
-            return "redirect:/projects";
+    // Atualizar um projeto existente
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateProject(@PathVariable Long id, @RequestBody ProjectDTO projectDTO) {
+        if (!validator.isValid(projectDTO)) {
+            return ResponseEntity.badRequest().body("Dados inválidos");
+        }
+
+        try {
+            Project project = projectMapper.toEntity(projectDTO);
+            project.setId(id);
+            projectService.save(project);
+            return ResponseEntity.ok("Projeto atualizado com sucesso");
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erro ao atualizar projeto: " + e.getMessage());
+        }
+    }
+
+    // Deletar um projeto
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteProject(@PathVariable Long id) {
+        try {
+            projectService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erro ao excluir projeto: " + e.getMessage());
         }
     }
 
