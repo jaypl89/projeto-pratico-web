@@ -31,8 +31,14 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/**")
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/", "/users/register").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/users/list").hasRole("ADMIN")
+                        .requestMatchers("/projects/list", "/projects/new").hasAnyRole("ADMIN", "SUPERVISOR")
+                        .anyRequest().authenticated()
+                )
+                .httpBasic(withDefaults());
         return http.build();
     }
 

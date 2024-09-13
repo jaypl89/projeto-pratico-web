@@ -17,12 +17,10 @@ public class TaskMapper implements Mapper<Task, TaskDTO>{
 
     private final ModelMapper modelMapper;
     private final ProjectService projectService;
-    private final UserService userService;
 
-    public TaskMapper(ModelMapper modelMapper, ProjectService projectService, UserService userService) {
+    public TaskMapper(ModelMapper modelMapper, ProjectService projectService) {
         this.modelMapper = modelMapper;
         this.projectService = projectService;
-        this.userService = userService;
     }
 
     @Override
@@ -37,7 +35,6 @@ public class TaskMapper implements Mapper<Task, TaskDTO>{
     @Override
     public Task toEntity(TaskDTO taskDTO) {
         Task task = modelMapper.map(taskDTO, Task.class);
-        //task.setUser(userService.getAuthenticatedUser());
         Project project = projectService.findById(taskDTO.getProjectId()).orElse(null);
         task.setProject(project);
         task.setDeadline(LocalDate.parse(taskDTO.getDeadline(), DateTimeFormatter.ofPattern("yyyy-MM-dd")));

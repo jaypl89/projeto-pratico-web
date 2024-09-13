@@ -24,9 +24,13 @@ public class ProjectMapper implements Mapper<Project, ProjectDTO>{
     @Override
     public ProjectDTO toDTO(Project project) {
         ProjectDTO projectDTO = modelMapper.map(project, ProjectDTO.class);
-        projectDTO.setParticipantIds(project.getParticipants().stream()
+        projectDTO.setParticipantsNames(project.getParticipants().stream()
+                .map(User::getName)
+                .collect(Collectors.toList()));
+        projectDTO.setParticipantsIds(project.getParticipants().stream()
                 .map(User::getId)
                 .collect(Collectors.toList()));
+
         return projectDTO;
     }
 
@@ -34,17 +38,8 @@ public class ProjectMapper implements Mapper<Project, ProjectDTO>{
     public Project toEntity(ProjectDTO projectDTO) {
         Project project = modelMapper.map(projectDTO, Project.class);
 
-        // Obter o usuário autenticado como supervisor e verificar se ele é SUPERVISOR
-        User supervisor = null;//userService.getAuthenticatedUser();
-        if (supervisor.getProfile() != Profile.SUPERVISOR) {
-            throw new SecurityException("Somente usuários com perfil SUPERVISOR podem criar ou gerenciar projetos.");
-        }
-
-        // Define o supervisor como o usuário autenticado
-        project.setSupervisor(supervisor);
-
         // Define os participantes do projeto
-        project.setParticipants(userService.findAllByIds(projectDTO.getParticipantIds()));
+        project.setParticipants(userService.findAllByIds(projectDTO.getParticipantsIds()));
 
         return project;
     }

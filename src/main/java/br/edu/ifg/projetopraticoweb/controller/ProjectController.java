@@ -4,6 +4,7 @@ import br.edu.ifg.projetopraticoweb.dto.ProjectDTO;
 import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
 import br.edu.ifg.projetopraticoweb.mapper.ProjectMapper;
 import br.edu.ifg.projetopraticoweb.model.Project;
+import br.edu.ifg.projetopraticoweb.service.AuthenticationService;
 import br.edu.ifg.projetopraticoweb.service.ProjectService;
 import br.edu.ifg.projetopraticoweb.validator.ProjectDTOValidator;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -22,10 +24,12 @@ public class ProjectController {
     private final ProjectService projectService;
     private final ProjectMapper projectMapper;
     private final ProjectDTOValidator validator;
+    private final AuthenticationService authenticationService;
 
-    public ProjectController(ProjectService projectService, ProjectMapper projectMapper) {
+    public ProjectController(ProjectService projectService, ProjectMapper projectMapper, AuthenticationService authenticationService) {
         this.projectService = projectService;
         this.projectMapper = projectMapper;
+        this.authenticationService = authenticationService;
         this.validator = new ProjectDTOValidator();
     }
 
@@ -47,7 +51,7 @@ public class ProjectController {
     }
 
     // Criar um novo projeto
-    @PostMapping
+    @PostMapping("/new")
     public ResponseEntity<String> createProject(@RequestBody ProjectDTO projectDTO) {
         if (!validator.isValid(projectDTO)) {
             return ResponseEntity.badRequest().body("Dados inválidos");
@@ -55,6 +59,7 @@ public class ProjectController {
 
         try {
             Project project = projectMapper.toEntity(projectDTO);
+            project.setSupervisor(authenticationService.getAuthenticatedUser());
             projectService.save(project);
             return ResponseEntity.created(URI.create("/projects/" + project.getId())).build();
         } catch (Exception e) {
@@ -65,6 +70,13 @@ public class ProjectController {
     // Atualizar um projeto existente
     @PutMapping("/{id}")
     public ResponseEntity<String> updateProject(@PathVariable Long id, @RequestBody ProjectDTO projectDTO) {
+        Optional<Project> projectOptional = projectService.findById(id);
+        if (!authenticationService.authenticate(projectOptional.orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Projeto não encontrado")
+        ).getSupervisor().getEmail())) {
+            return ResponseEntity.badRequest().body("Usuário não autorizado");
+        }
+
         if (!validator.isValid(projectDTO)) {
             return ResponseEntity.badRequest().body("Dados inválidos");
         }
@@ -72,6 +84,7 @@ public class ProjectController {
         try {
             Project project = projectMapper.toEntity(projectDTO);
             project.setId(id);
+            project.setSupervisor(projectOptional.get().getSupervisor());
             projectService.save(project);
             return ResponseEntity.ok("Projeto atualizado com sucesso");
         } catch (ResourceNotFoundException e) {

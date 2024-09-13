@@ -31,6 +31,5 @@ public class TaskDTO {
     @NotNull(message = "O status é obrigatório")
     private String status;
 
-    @NotNull(message = "O projeto é obrigatório")
     private Long projectId;
 }

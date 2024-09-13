@@ -3,6 +3,7 @@ package br.edu.ifg.projetopraticoweb.controller;
 import br.edu.ifg.projetopraticoweb.dto.UserDTO;
 import br.edu.ifg.projetopraticoweb.mapper.UserMapper;
 import br.edu.ifg.projetopraticoweb.model.User;
+import br.edu.ifg.projetopraticoweb.service.AuthenticationService;
 import br.edu.ifg.projetopraticoweb.service.UserService;
 import br.edu.ifg.projetopraticoweb.validator.UserDTOValidator;
 import org.springframework.http.HttpStatus;
@@ -21,15 +22,17 @@ public class UserController {
     private final UserService userService;
     private final UserMapper userMapper;
     private final UserDTOValidator userDTOValidator;
+    private final AuthenticationService authenticationService;
 
-    public UserController(UserService userService, UserMapper userMapper) {
+    public UserController(UserService userService, UserMapper userMapper, AuthenticationService authenticationService) {
         this.userService = userService;
         this.userMapper = userMapper;
+        this.authenticationService = authenticationService;
         this.userDTOValidator = new UserDTOValidator();
     }
 
     // API para listar todos os usuários (retorna JSON)
-    @GetMapping
+    @GetMapping("/list")
     public ResponseEntity<List<UserDTO>> listUsers() {
         List<UserDTO> users = userService.findAll().stream()
                 .map(userMapper::toDTO)
@@ -46,7 +49,7 @@ public class UserController {
     }
 
     // API para criar um novo usuário (recebe dados em JSON)
-    @PostMapping
+    @PostMapping("/register")
     public ResponseEntity<String> createUser(@RequestBody UserDTO userDTO) {
         if (!userDTOValidator.isValid(userDTO)) {
             return ResponseEntity.badRequest().body("Dados inválidos");
@@ -61,6 +64,10 @@ public class UserController {
     // API para atualizar um usuário existente (recebe dados em JSON)
     @PutMapping("/{id}")
     public ResponseEntity<String> updateUser(@PathVariable Long id, @RequestBody UserDTO userDTO) {
+        if (!authenticationService.authenticate(id)) {
+            return ResponseEntity.badRequest().body("Usuário não autorizado");
+        }
+
         if (!userDTOValidator.isValid(userDTO)) {
             return ResponseEntity.badRequest().body("Dados inválidos");
         }
@@ -79,6 +86,10 @@ public class UserController {
     // API para deletar um usuário por ID
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        if (!authenticationService.authenticate(id)) {
+            return ResponseEntity.badRequest().body("Usuário não autorizado");
+        }
+
         if (userService.findById(id).isPresent()) {
             userService.delete(id);
             return ResponseEntity.noContent().build();
@@ -86,5 +97,6 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado");
         }
     }
+
 }
 

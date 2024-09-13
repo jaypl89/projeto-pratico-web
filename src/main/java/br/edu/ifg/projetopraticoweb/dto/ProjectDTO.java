@@ -33,5 +33,6 @@ public class ProjectDTO {
     @Future(message = "A data de término deve estar no futuro")
     private LocalDate endDate;
 
-    private List<Long> participantIds; // Lista de IDs dos participantes
+    private List<Long> participantsIds;
+    private List<String> participantsNames;
 }
