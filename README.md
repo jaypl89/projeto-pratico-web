@@ -2,13 +2,13 @@
 
 ![Language](https://img.shields.io/badge/language-Java-blue.svg)
 ![Framework](https://img.shields.io/badge/framework-Spring%20Boot-green.svg)
-![Database](https://img.shields.io/badge/database-H2-orange.svg)
+![Database](https://img.shields.io/badge/database-MySQL-orange.svg)
 
-Projeto Prático Web é uma aplicação desenvolvida utilizando Spring Boot, destinada a gerenciar tarefas e projetos de forma eficiente e moderna.
+Projeto Prático Web é uma aplicação desenvolvida utilizando Spring Boot, destinada a gerenciar tarefas e projeto.
 
 ## Configuração do Ambiente
 
-Este projeto está configurado para ser executado com Java 11 e Spring Boot 2.x.
+Este projeto está configurado para ser executado com Java 11 e Spring Boot 3.x.
 
 ## Estrutura do Projeto
 
