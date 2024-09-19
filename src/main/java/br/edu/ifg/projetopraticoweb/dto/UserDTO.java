@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserDTO {
+    private Long id;
 
     @NotBlank(message = "O nome não pode estar vazio")
     @Size(min = 2, max = 100, message = "O nome deve ter entre 2 e 100 caracteres")
@@ -24,5 +25,7 @@ public class UserDTO {
     @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
             message = "A senha deve conter pelo menos uma letra maiúscula, uma letra minúscula, um dígito e um caractere especial")
     private String password;
+
+    private String profile;
 }
 

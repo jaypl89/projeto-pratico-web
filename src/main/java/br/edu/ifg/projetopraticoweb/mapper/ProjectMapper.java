@@ -5,7 +5,9 @@ import br.edu.ifg.projetopraticoweb.enum_data.Profile;
 import br.edu.ifg.projetopraticoweb.model.Project;
 import br.edu.ifg.projetopraticoweb.model.User;
 import br.edu.ifg.projetopraticoweb.service.UserService;
+import jakarta.annotation.PostConstruct;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.PropertyMap;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -19,6 +21,18 @@ public class ProjectMapper implements Mapper<Project, ProjectDTO>{
     public ProjectMapper(ModelMapper modelMapper, UserService userService) {
         this.modelMapper = modelMapper;
         this.userService = userService;
+    }
+
+    @PostConstruct
+    public void init() {
+        // Configuração do ModelMapper para ignorar mapeamento automático das propriedades conflitantes
+        modelMapper.addMappings(new PropertyMap<ProjectDTO, Project>() {
+            @Override
+            protected void configure() {
+                // Ignorar propriedades conflitantes
+                skip().setParticipants(null);
+            }
+        });
     }
 
     @Override

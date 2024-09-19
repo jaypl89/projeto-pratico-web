@@ -6,7 +6,7 @@ import br.edu.ifg.projetopraticoweb.mapper.TaskMapper;
 import br.edu.ifg.projetopraticoweb.model.Task;
 import br.edu.ifg.projetopraticoweb.service.AuthenticationService;
 import br.edu.ifg.projetopraticoweb.service.TaskService;
-import br.edu.ifg.projetopraticoweb.validator.TaskDTOValidator;
+import br.edu.ifg.projetopraticoweb.validator.DTOValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,20 +23,20 @@ public class TaskController {
 
     private final TaskService taskService;
     private final TaskMapper taskMapper;
-    private final TaskDTOValidator validator;
+    private final DTOValidator<TaskDTO> validator;
     private final AuthenticationService authenticationService;
 
     public TaskController(TaskService taskService, TaskMapper taskMapper, AuthenticationService authenticationService) {
         this.taskService = taskService;
         this.taskMapper = taskMapper;
         this.authenticationService = authenticationService;
-        this.validator = new TaskDTOValidator();
+        this.validator = new DTOValidator<>();
     }
 
     // Listar todas as tarefas
     @GetMapping
     public ResponseEntity<List<TaskDTO>> listTasks() {
-        List<TaskDTO> tasks = taskService.findAll().stream()
+        List<TaskDTO> tasks = taskService.findAllByUser(authenticationService.getAuthenticatedUser()).stream()
                 .map(taskMapper::toDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(tasks);
@@ -46,7 +46,7 @@ public class TaskController {
     @GetMapping("/{id}")
     public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long id) {
         Task task = taskService.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tarefa não encontrada!"));
         return ResponseEntity.ok(taskMapper.toDTO(task));
     }
 
@@ -54,7 +54,7 @@ public class TaskController {
     @PostMapping("/new")
     public ResponseEntity<String> createTask(@RequestBody TaskDTO taskDTO) {
         if (!validator.isValid(taskDTO)) {
-            return ResponseEntity.badRequest().body("Dados inválidos");
+            return ResponseEntity.badRequest().body(validator.validationMessages(taskDTO).toString());
         }
 
         try {
@@ -72,13 +72,13 @@ public class TaskController {
     public ResponseEntity<String> updateTask(@PathVariable Long id, @RequestBody TaskDTO taskDTO) {
         Optional<Task> taskOptional = taskService.findById(id);
         if (!authenticationService.authenticate(taskOptional.orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task não encontrada")
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tarefa não encontrada")
         ).getUser().getEmail())) {
             return ResponseEntity.badRequest().body("Usuário não autorizado");
         }
 
         if (!validator.isValid(taskDTO)) {
-            return ResponseEntity.badRequest().body("Dados inválidos");
+            return ResponseEntity.badRequest().body(validator.validationMessages(taskDTO).toString());
         }
 
         try {
@@ -97,7 +97,7 @@ public class TaskController {
     public ResponseEntity<String> deleteTask(@PathVariable Long id) {
         Optional<Task> taskOptional = taskService.findById(id);
         if (!authenticationService.authenticate(taskOptional.orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task não encontrada")
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tarefa não encontrada")
         ).getUser().getEmail())) {
             return ResponseEntity.badRequest().body("Usuário não autorizado");
         }

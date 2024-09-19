@@ -6,7 +6,7 @@ import br.edu.ifg.projetopraticoweb.mapper.ProjectMapper;
 import br.edu.ifg.projetopraticoweb.model.Project;
 import br.edu.ifg.projetopraticoweb.service.AuthenticationService;
 import br.edu.ifg.projetopraticoweb.service.ProjectService;
-import br.edu.ifg.projetopraticoweb.validator.ProjectDTOValidator;
+import br.edu.ifg.projetopraticoweb.validator.DTOValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,20 +23,20 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final ProjectMapper projectMapper;
-    private final ProjectDTOValidator validator;
+    private final DTOValidator<ProjectDTO> validator;
     private final AuthenticationService authenticationService;
 
     public ProjectController(ProjectService projectService, ProjectMapper projectMapper, AuthenticationService authenticationService) {
         this.projectService = projectService;
         this.projectMapper = projectMapper;
         this.authenticationService = authenticationService;
-        this.validator = new ProjectDTOValidator();
+        this.validator = new DTOValidator<>();
     }
 
     // Listar todos os projetos
     @GetMapping
     public ResponseEntity<List<ProjectDTO>> listProjects() {
-        List<ProjectDTO> projects = projectService.findAll().stream()
+        List<ProjectDTO> projects = projectService.findAllByUser(authenticationService.getAuthenticatedUser()).stream()
                 .map(projectMapper::toDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(projects);
@@ -46,7 +46,7 @@ public class ProjectController {
     @GetMapping("/{id}")
     public ResponseEntity<ProjectDTO> findProjectById(@PathVariable Long id) {
         Project project = projectService.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Projeto não encontrado!"));
         return ResponseEntity.ok(projectMapper.toDTO(project));
     }
 
@@ -54,7 +54,7 @@ public class ProjectController {
     @PostMapping("/new")
     public ResponseEntity<String> createProject(@RequestBody ProjectDTO projectDTO) {
         if (!validator.isValid(projectDTO)) {
-            return ResponseEntity.badRequest().body("Dados inválidos");
+            return ResponseEntity.badRequest().body(validator.validationMessages(projectDTO).toString());
         }
 
         try {
@@ -78,7 +78,7 @@ public class ProjectController {
         }
 
         if (!validator.isValid(projectDTO)) {
-            return ResponseEntity.badRequest().body("Dados inválidos");
+            return ResponseEntity.badRequest().body(validator.validationMessages(projectDTO).toString());
         }
 
         try {

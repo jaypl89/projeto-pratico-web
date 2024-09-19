@@ -1,20 +1,15 @@
 package br.edu.ifg.projetopraticoweb.config;
 
 import br.edu.ifg.projetopraticoweb.service.AuthenticationService;
-import br.edu.ifg.projetopraticoweb.service.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationFilter;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -32,12 +27,26 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/users/register").permitAll()
-                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/users/list").hasRole("ADMIN")
-                        .requestMatchers("/projects/list", "/projects/new").hasAnyRole("ADMIN", "SUPERVISOR")
+                        .requestMatchers("/", "/users/register", "/register").permitAll()
+                        .requestMatchers("/static/**", "/index.html", "/pages/**", "/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/user/list").hasRole("ADMIN")
+                        .requestMatchers("/project/list", "/project/new").hasAnyRole("ADMIN", "SUPERVISOR")
                         .anyRequest().authenticated()
                 )
+                .formLogin(form -> form
+                        .loginPage("/")
+                        .loginProcessingUrl("/perform_login")
+                        //.defaultSuccessUrl("/task/list", true)
+                        .successHandler(customAuthenticationSuccessHandler())
+                        .failureUrl("/?error=true")
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/perform_logout")
+                        .logoutSuccessUrl("/?logout=true")
+                        .permitAll()
+                )
+                .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(withDefaults());
         return http.build();
     }
@@ -53,4 +62,10 @@ public class SecurityConfiguration {
         auth.userDetailsService(authenticationService).passwordEncoder(bCryptPasswordEncoder());
         return auth.build();
     }
+
+    @Bean
+    public CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return new CustomAuthenticationSuccessHandler();
+    }
+
 }

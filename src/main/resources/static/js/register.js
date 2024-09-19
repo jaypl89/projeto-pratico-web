@@ -15,6 +15,9 @@ document.getElementById('registerForm').addEventListener('submit', function (eve
         .then(function (response) {
             document.getElementById('message').innerHTML = '<div class="alert alert-success">User registered successfully!</div>';
             document.getElementById('registerForm').reset();
+
+            // Redireciona para a página inicial
+            window.location.href = '/';
         })
         .catch(function (error) {
             let message = error.response.data || 'An error occurred';

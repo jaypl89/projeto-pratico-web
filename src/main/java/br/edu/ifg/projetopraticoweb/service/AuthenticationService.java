@@ -3,6 +3,7 @@ package br.edu.ifg.projetopraticoweb.service;
 import br.edu.ifg.projetopraticoweb.enum_data.Profile;
 import br.edu.ifg.projetopraticoweb.exception.ResourceNotFoundException;
 import br.edu.ifg.projetopraticoweb.model.User;
+import br.edu.ifg.projetopraticoweb.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,15 +17,15 @@ import java.util.Optional;
 @Service
 public class AuthenticationService implements UserDetailsService {
 
-    private final UserService userService;
+    private final UserRepository userRepository;
 
-    public AuthenticationService(UserService userService) {
-        this.userService = userService;
+    public AuthenticationService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Optional<User> userOptional = userService.findByEmail(username);
+        Optional<User> userOptional = userRepository.findByEmail(username);
         if (userOptional.isEmpty()) {
             throw new UsernameNotFoundException("User not found");
         }
@@ -39,7 +40,7 @@ public class AuthenticationService implements UserDetailsService {
     public User getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentEmail = authentication.getName();  // Email do usuário autenticado
-        return userService.findByEmail(currentEmail)
+        return userRepository.findByEmail(currentEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
     }
 

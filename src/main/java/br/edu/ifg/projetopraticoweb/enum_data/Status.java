@@ -1,5 +1,8 @@
 package br.edu.ifg.projetopraticoweb.enum_data;
 
+import lombok.Getter;
+
+@Getter
 public enum Status {
     PENDING("Pendente"),
     IN_PROGRESS("Em Progresso"),
@@ -9,10 +12,6 @@ public enum Status {
 
     Status(String descricao) {
         this.description = descricao;
-    }
-
-    public String getDescription() {
-        return description;
     }
 
     @Override
